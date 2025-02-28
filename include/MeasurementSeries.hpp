@@ -2,6 +2,7 @@
 
 #include "DataStorage.hpp"
 #include "math.h"
+#include "standard/limits.hpp"
 #undef min
 #undef max
 
@@ -9,65 +10,37 @@ template <typename T, size_t Size>
 class MeasurementSeries {
 public:
   MeasurementSeries& add( const T& data ) {
-    if ( !isnan( data ) ) {
-      m_data.add( data );
-      m_evaluate = true;
-    }
+    if ( isnan( data ) ) return *this;
+    m_data.add( data );
+    if ( data < m_min ) { m_min = data; }
+    if ( data > m_max ) { m_max = data; }
     return *this;
   }
 
   MeasurementSeries& clear() {
-    m_evaluate = true;
-    m_avg      = NAN;
-    m_min      = NAN;
-    m_max      = NAN;
+    m_avg = NAN;
+    m_min = numeric_limits<T>::max();
+    m_max = numeric_limits<T>::lowest();
     m_data.clear();
     return *this;
   }
 
-  MeasurementSeries& eval() {
-    if ( m_evaluate && !m_data.empty() ) {
-      m_avg = T{};
-      m_min = __FLT_MAX__;
-      m_max = __FLT_MIN__;
-      for ( const auto& d : m_data ) {
-        m_avg += d;
-        m_min = d < m_min ? d : m_min;
-        m_max = d > m_max ? d : m_max;
-      }
-      m_avg /= m_data.size();
-      m_evaluate = false;
-    }
+  MeasurementSeries& clearIfFull() {
+    if ( dataStorage().full() ) { clear(); }
     return *this;
   }
 
-  T average() {
-    eval();
-    return m_avg;
-  }
+  T average() const { return m_avg; }
 
-  T averageAndClear() {
-    const auto avg = average();
-    clear();
-    return avg;
-  }
+  T min() const { return m_min; }
 
-  T min() {
-    eval();
-    return m_min;
-  }
+  T max() const { return m_max; }
 
-  T max() {
-    eval();
-    return m_max;
-  }
-
-  const DataStorage<T, Size>& dataStorage() { return m_data; }
+  const DataStorage<T, Size>& dataStorage() const { return m_data; }
 
 private:
-  bool                 m_evaluate{ true };
   T                    m_avg{ NAN };
-  T                    m_min{ NAN };
-  T                    m_max{ NAN };
+  T                    m_min{ numeric_limits<T>::max() };
+  T                    m_max{ numeric_limits<T>::lowest() };
   DataStorage<T, Size> m_data{};
 };
